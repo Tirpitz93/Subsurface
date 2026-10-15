@@ -114,9 +114,28 @@ target_link_libraries(
 # SSRF test cases (TBD, convert to standard qTest setup)
 TEST(TestUnitConversion testunitconversion.cpp)
 TEST(TestProfile testprofile.cpp)
+target_sources(TestProfile PRIVATE
+	../profile-widget/animationfunctions.cpp
+	../profile-widget/divecartesianaxis.cpp
+	../profile-widget/diveeventitem.cpp
+	../profile-widget/divelineitem.cpp
+	../profile-widget/divepixmapcache.cpp
+	../profile-widget/divepixmapitem.cpp
+	../profile-widget/divepercentageitem.cpp
+	../profile-widget/diveprofileitem.cpp
+	../profile-widget/diverectitem.cpp
+	../profile-widget/divetextitem.cpp
+	../profile-widget/profilescene.cpp
+	../profile-widget/tankitem.cpp
+)
+find_library(HTTP_PARSER_LIB http_parser)
+if (HTTP_PARSER_LIB)
+	target_link_libraries(TestProfile ${HTTP_PARSER_LIB})
+endif()
 TEST(TestGpsCoords testgpscoords.cpp)
 TEST(TestParse testparse.cpp)
 TEST(TestAirPressure testAirPressure.cpp)
+TEST(TestSurfaceGf testsurfacegf.cpp)
 if (BTSUPPORT)
 	TEST(TestHelper testhelper.cpp)
 endif()
@@ -186,6 +205,7 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
 	TestPlan
 	${TEST_DIVE_PLANNER_MODEL}
 	TestAirPressure
+	TestSurfaceGf
 	TestDiveSiteDuplication
 	TestRenumber
 	${TEST_PICTURE}
@@ -209,6 +229,7 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
 	TestQPrefUnits
 	TestQPrefUpdateManager
 	TestOstcFirmware
+	TestformatDiveGasString
 	TestQML
 	TestRuler
 	TestMobileCylinderEdit

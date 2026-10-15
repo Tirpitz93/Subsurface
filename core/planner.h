@@ -4,8 +4,11 @@
 
 #include "units.h"
 #include "divemode.h"
+#include <memory>
 #include <string>
 #include <vector>
+
+struct dive;
 
 /* this should be converted to use our types */
 struct divedatapoint {
@@ -32,6 +35,21 @@ typedef enum {
 	PLAN_ERROR_RECREATIONAL_EXCEEDS_NDL,
 } planner_error_t;
 
+/*
+ * The deco "views" the planner can compute and the profile can display:
+ *  - PRIMARY:     the dive as entered (closed circuit on the loop for a CCR dive, open circuit otherwise)
+ *  - CCR_BAILOUT: a CCR dive whose ascent is done on open circuit bailout gas, using the bailout gradient factors
+ *  - OC_BAILOUT:  an open circuit dive whose ascent is recomputed with the bailout gradient factors
+ */
+enum plan_scenario {
+	SCENARIO_PRIMARY,
+	SCENARIO_CCR_BAILOUT,
+	SCENARIO_OC_BAILOUT,
+};
+
+/* Which alternative (bailout) scenario applies to a dive that is done in the given dive mode. */
+extern plan_scenario bailout_scenario_for_mode(enum divemode_t divemode);
+
 struct diveplan {
 	diveplan();
 	~diveplan();
@@ -49,6 +67,11 @@ struct diveplan {
 	short gfhigh = 0;
 	short vpmb_conservatism = 0;
 	std::vector<divedatapoint> dp;
+	std::vector<divedatapoint> backup_dp;	/* the calculated (non-entered) segments of the bailout ascent */
+	int bailout_gflow = 0, bailout_gfhigh = 0;
+	bool show_bailout = false;
+	plan_scenario bailout_scenario = SCENARIO_PRIMARY;	/* scenario of bailout_dive, SCENARIO_PRIMARY if there is none */
+	std::shared_ptr<struct dive> bailout_dive;	/* full dive (entered part + bailout ascent), if show_bailout is set */
 	int eff_gflow = 0, eff_gfhigh = 0;
 	int surface_interval = 0;
 
@@ -73,5 +96,5 @@ struct decostop {
 };
 
 extern std::string get_planner_disclaimer_formatted();
-extern planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct dive *dive, int dcNr, int timestep, deco_state_cache &cache, bool is_planner, bool show_disclaimer, std::vector<decostop> *decostoptable);
+extern planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct dive *dive, int dcNr, int timestep, deco_state_cache &cache, bool is_planner, bool show_disclaimer, std::vector<decostop> *decostoptable, plan_scenario scenario = SCENARIO_PRIMARY);
 #endif // PLANNER_H

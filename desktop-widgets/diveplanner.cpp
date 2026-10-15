@@ -76,13 +76,11 @@ DivePlannerWidget::DivePlannerWidget(const dive &planned_dive, int &dcNr, Planne
 	ui.waterType->setCurrentIndex(1);
 	waterTypeUpdateTexts();
 
-	disableDecoElements(static_cast<int>(prefs.planner_deco_mode), OC);
 	connect(ui.startTime, &QDateEdit::timeChanged, plannerModel, &DivePlannerPointsModel::setStartTime);
 	connect(ui.dateEdit, &QDateEdit::dateChanged, plannerModel, &DivePlannerPointsModel::setStartDate);
 	connect(ui.divemode, QOverload<int>::of(&QComboBox::currentIndexChanged), parent, &PlannerWidgets::diveModeChanged);
 	connect(ui.ATMPressure, QOverload<int>::of(&QSpinBox::valueChanged), this, &DivePlannerWidget::atmPressureChanged);
 	connect(ui.atmHeight, QOverload<int>::of(&QSpinBox::valueChanged), this, &DivePlannerWidget::heightChanged);
-	connect(ui.bailout, &QAbstractButton::toggled, &PlannerShared::set_dobailout);
 	connect(ui.waterType, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &DivePlannerWidget::waterTypeChanged);
 	connect(ui.customSalinity, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &DivePlannerWidget::customSalinityChanged);
 
@@ -135,15 +133,6 @@ DivePlannerWidget::~DivePlannerWidget()
 {
 }
 
-void DivePlannerWidget::disableDecoElements(int mode, divemode_t divemode)
-{
-	if (mode == RECREATIONAL) {
-		ui.bailout->setVisible(false);
-	} else if (mode == VPMB || mode == BUEHLMANN) {
-		ui.bailout->setVisible(IS_REBREATHER_MODE(divemode));
-	}
-}
-
 void DivePlannerWidget::setReplanButton(bool replan)
 {
 	replanButton->setVisible(replan);
@@ -158,6 +147,11 @@ void DivePlannerWidget::setupStartTime(QDateTime startTime)
 void DivePlannerWidget::setSurfacePressure(int surface_pressure)
 {
 	ui.ATMPressure->setValue(surface_pressure);
+}
+
+void DivePlannerWidget::initialiseSurfacePressure()
+{
+	DivePlannerPointsModel::instance()->initialiseDesktopPlanSurfacePressure({ .mbar = ui.ATMPressure->value() });
 }
 
 void DivePlannerWidget::setSalinity(int salinity)
@@ -259,8 +253,6 @@ void DivePlannerWidget::setDiveMode(int mode)
 
 void DivePlannerWidget::diveModeChanged(int mode)
 {
-	disableDecoElements(static_cast<int>(prefs.planner_deco_mode), static_cast<divemode_t>(mode));
-
 	ui.tableWidget->view()->setColumnHidden(DivePlannerPointsModel::CCSETPOINT, mode != CCR);
 	ui.tableWidget->view()->setColumnHidden(DivePlannerPointsModel::DIVEMODE, mode == OC || (mode == CCR && !prefs.allowOcGasAsDiluent));
 
@@ -280,8 +272,25 @@ void DivePlannerWidget::hideEvent(QHideEvent *)
 	MainWindow::instance()->menuBar()->removeAction(plannerMenu->menuAction());
 }
 
+// Planning the ascent on bailout only makes sense for rebreathers and for decompression planning.
+// The bailout gradient factors only apply to Buehlmann.
+void PlannerSettingsWidget::updateBailoutControls()
+{
+	ui.bailout->setVisible(decoMode != RECREATIONAL && IS_REBREATHER_MODE(currentDiveMode));
+	bool gradientFactors = decoMode == BUEHLMANN;
+	ui.label_gflow_bo->setEnabled(gradientFactors);
+	ui.label_gfhigh_bo->setEnabled(gradientFactors);
+	ui.gflow_bo->setEnabled(gradientFactors);
+	ui.gfhigh_bo->setEnabled(gradientFactors);
+}
+
 void PlannerSettingsWidget::disableDecoElements(int mode, divemode_t divemode)
 {
+	decoMode = mode;
+	currentDiveMode = divemode;
+	ui.show_bailout->setDisabled(mode == RECREATIONAL);
+	updateBailoutControls();
+
 	if (mode == RECREATIONAL) {
 		ui.label_gflow->setDisabled(false);
 		ui.label_gfhigh->setDisabled(false);
@@ -370,6 +379,10 @@ PlannerSettingsWidget::PlannerSettingsWidget(PlannerWidgets *parent)
 	plannerModel->getDiveplan().decosac = prefs.decosac;
 
 	updateUnitsUI();
+	ui.show_bailout->setChecked(prefs.show_bailout_in_planner);
+	ui.bailout->setChecked(prefs.dobailout);
+	ui.gflow_bo->setValue(prefs.gflow_bo);
+	ui.gfhigh_bo->setValue(prefs.gfhigh_bo);
 	ui.lastStop->setChecked(prefs.last_stop);
 	ui.verbatim_plan->setChecked(prefs.verbatim_plan);
 	ui.display_duration->setChecked(prefs.display_duration);
@@ -417,6 +430,13 @@ PlannerSettingsWidget::PlannerSettingsWidget(PlannerWidgets *parent)
 	connect(ui.o2narcotic, &QAbstractButton::toggled, &PlannerShared::set_o2narcotic);
 	connect(ui.switch_at_req_stop, &QAbstractButton::toggled, plannerModel, &DivePlannerPointsModel::setSwitchAtReqStop);
 	connect(ui.min_switch_duration, QOverload<int>::of(&QSpinBox::valueChanged), &PlannerShared::set_min_switch_duration);
+	connect(ui.bailout, &QAbstractButton::toggled, [plannerModel](bool value) {
+		PlannerShared::set_dobailout(value);
+		plannerModel->emitDataChanged();
+	});
+	connect(ui.show_bailout, &QAbstractButton::toggled, plannerModel, &DivePlannerPointsModel::setShowBailout);
+	connect(ui.gflow_bo, QOverload<int>::of(&QSpinBox::valueChanged), plannerModel, &DivePlannerPointsModel::setGFLowBailout);
+	connect(ui.gfhigh_bo, QOverload<int>::of(&QSpinBox::valueChanged), plannerModel, &DivePlannerPointsModel::setGFHighBailout);
 	connect(ui.surface_segment, QOverload<int>::of(&QSpinBox::valueChanged), &PlannerShared::set_surface_segment);
 
 	connect(ui.recreational_deco, &QAbstractButton::clicked, [parent] { parent->disableDecoElements(RECREATIONAL, parent->getDiveMode()); });
@@ -435,6 +455,8 @@ PlannerSettingsWidget::PlannerSettingsWidget(PlannerWidgets *parent)
 	settingsChanged();
 	ui.gflow->setValue(prefs.gflow);
 	ui.gfhigh->setValue(prefs.gfhigh);
+	ui.gflow_bo->setValue(prefs.gflow_bo);
+	ui.gfhigh_bo->setValue(prefs.gfhigh_bo);
 	ui.vpmb_conservatism->setValue(prefs.vpmb_conservatism);
 
 	ui.ascRate75->setKeyboardTracking(false);
@@ -444,6 +466,8 @@ PlannerSettingsWidget::PlannerSettingsWidget(PlannerWidgets *parent)
 	ui.descRate->setKeyboardTracking(false);
 	ui.gfhigh->setKeyboardTracking(false);
 	ui.gflow->setKeyboardTracking(false);
+	ui.gflow_bo->setKeyboardTracking(false);
+	ui.gfhigh_bo->setKeyboardTracking(false);
 
 	setMinimumWidth(0);
 	setMinimumHeight(0);
@@ -531,6 +555,7 @@ void PlannerSettingsWidget::setBackgasBreaks(bool dobreaks)
 
 void PlannerSettingsWidget::diveModeChanged(int mode)
 {
+	disableDecoElements(static_cast<int>(prefs.planner_deco_mode), static_cast<divemode_t>(mode));
 	ui.sacfactor->setDisabled(IS_REBREATHER_MODE(mode));
 }
 
@@ -582,6 +607,10 @@ void PlannerWidgets::preparePlanDive(const dive *currentDive, int currentDcNr)
 	DivePlannerPointsModel::instance()->setPlanMode(DivePlannerPointsModel::PLAN);
 	// create a simple starting dive, using the first gas from the just copied cylinders
 	DivePlannerPointsModel::instance()->createSimpleDive(planned_dive.get());
+	// The atmospheric-pressure widget retains its displayed value between plan
+	// sessions, while the shared planner model can have been used by mobile.
+	// Initialise the new desktop plan from that authoritative desktop value.
+	plannerWidget.initialiseSurfacePressure();
 	dcNr = 0;
 
 	// plan the dive in the same mode as the currently selected one
@@ -691,6 +720,5 @@ void PlannerWidgets::settingsChanged()
 
 void PlannerWidgets::disableDecoElements(int mode, divemode_t divemode)
 {
-	plannerWidget.disableDecoElements(mode, divemode);
 	plannerSettingsWidget.disableDecoElements(mode, divemode);
 }

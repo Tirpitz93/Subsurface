@@ -12,6 +12,7 @@
 #include "core/divecomputer.h"
 #include "core/event.h"
 #include "core/pref.h"
+#include "core/errorhelper.h"
 #include "core/profile.h"
 #include "core/range.h"
 #include "core/subsurface-float.h"
@@ -56,6 +57,49 @@ T *ProfileScene::createItem(const DiveCartesianAxis &vAxis, DataAccessor accesso
 	res->setZValue(static_cast<double>(z));
 	profileItems.push_back(res);
 	return res;
+}
+
+// Bailout items show data of the bailout plot info and are replotted separately from the regular items.
+template<typename T, class... Args>
+T *ProfileScene::createBailoutItem(const DiveCartesianAxis &vAxis, DataAccessor accessor, int z, Args&&... args)
+{
+	T *res = new T(bailoutPlotInfo, *timeAxis, vAxis, accessor, std::forward<Args>(args)...);
+	res->setZValue(static_cast<double>(z));
+	return res;
+}
+
+// Select the scenario that is shown in addition to the dive as planned. For a CCR dive this is the
+// CCR bailout (loop dive, open circuit ascent), for an OC dive the OC bailout (ascent with the
+// bailout gradient factors). Without bailout display or without a calculated bailout plan, there is none.
+plan_scenario ProfileScene::selectScenario(DivePlannerPointsModel *plannerModel, bool inPlanner) const
+{
+#if !defined(SUBSURFACE_CLI)
+	if (!inPlanner || !plannerModel || !prefs.show_bailout_in_planner)
+		return SCENARIO_PRIMARY;
+	const struct diveplan &diveplan = plannerModel->getDiveplan();
+	if (!diveplan.show_bailout || !diveplan.bailout_dive || diveplan.bailout_dive->dcs.empty() ||
+	    diveplan.bailout_dive->dcs[0].samples.empty())
+		return SCENARIO_PRIMARY;
+	return diveplan.bailout_scenario;
+#else
+	(void)plannerModel;
+	(void)inPlanner;
+	return SCENARIO_PRIMARY;
+#endif
+}
+
+// The data (depths, ceilings, tissue loading) of a given scenario
+const plot_info &ProfileScene::plotInfoFor(plan_scenario scenario) const
+{
+	return scenario == SCENARIO_PRIMARY ? plotInfo : bailoutPlotInfo;
+}
+
+// The tissue tensions are shown for the bailout alternative if there is one (it is stored in plotInfo,
+// the planned dive being the overlay in bailoutPlotInfo), since it is identical to the planned dive
+// up to the start of the ascent.
+const plot_info &ProfileScene::tensionPlotInfo() const
+{
+	return plotInfo;
 }
 
 PartialPressureGasItem *ProfileScene::createPPGas(DataAccessor accessor, color_index_t color, color_index_t colorAlert,
@@ -112,6 +156,9 @@ ProfileScene::ProfileScene(double dpr, bool printMode, bool isGrayscale) :
 	diveProfileItem(createItem<DiveProfileItem>(*profileYAxis,
 						    [](const plot_data &item) { return (double)item.depth.mm; },
 						    0, dpr)),
+	bailoutProfileItem(createBailoutItem<DiveBailoutProfileItem>(*profileYAxis,
+						    [](const plot_data &item) { return (double)item.depth.mm; },
+						    0, dpr)),
 	temperatureItem(createItem<DiveTemperatureItem>(*temperatureAxis,
 							[](const plot_data &item) { return (double)item.temperature; },
 							1, dpr)),
@@ -121,6 +168,9 @@ ProfileScene::ProfileScene(double dpr, bool printMode, bool isGrayscale) :
 	gasPressureItem(createItem<DiveGasPressureItem>(*cylinderPressureAxis,
 							[](const plot_data &item) { return 0.0; }, // unused
 							1, dpr)),
+	bailoutGasPressureItem(createBailoutItem<DiveGasPressureItem>(*cylinderPressureAxis,
+						       [](const plot_data &item) { return 0.0; }, // unused
+						       1, dpr)),
 	diveComputerText(new DiveTextItem(dpr, 1.0, Qt::AlignRight | Qt::AlignTop, nullptr)),
 	reportedCeiling(createItem<DiveReportedCeiling>(*profileYAxis,
 							[](const plot_data &item) { return (double)item.ceiling.mm; },
@@ -144,7 +194,11 @@ ProfileScene::ProfileScene(double dpr, bool printMode, bool isGrayscale) :
 	diveCeiling(createItem<DiveCalculatedCeiling>(*profileYAxis,
 						      [](const plot_data &item) { return (double)item.ceiling.mm; },
 						      1, dpr)),
+	bailoutCeiling(createBailoutItem<DiveCalculatedCeiling>(*profileYAxis,
+						      [](const plot_data &item) { return (double)item.ceiling.mm; },
+						      1, dpr)),
 	decoModelParameters(new DiveTextItem(dpr, 1.0, Qt::AlignHCenter | Qt::AlignTop, nullptr)),
+	bailoutTankItem(nullptr),
 	heartBeatItem(createItem<DiveHeartrateItem>(*heartBeatAxis,
 						    [](const plot_data &item) { return (double)item.heartbeat; },
 						    1, dpr)),
@@ -183,6 +237,10 @@ ProfileScene::ProfileScene(double dpr, bool printMode, bool isGrayscale) :
 
 	for (AbstractProfilePolygonItem *item: profileItems)
 		addItem(item);
+	addItem(bailoutCeiling);
+	addItem(bailoutGasPressureItem);
+	addItem(bailoutProfileItem);
+	bailoutGasPressureItem->setVisible(false);
 }
 
 ProfileScene::~ProfileScene()
@@ -193,6 +251,9 @@ void ProfileScene::clear()
 {
 	for (AbstractProfilePolygonItem *item: profileItems)
 		item->clear();
+	bailoutCeiling->clear();
+	bailoutGasPressureItem->clear();
+	bailoutProfileItem->clear();
 
 	// the events will have connected slots which can fire after
 	// the dive and its data have been deleted - so explictly delete
@@ -200,6 +261,8 @@ void ProfileScene::clear()
 	qDeleteAll(eventItems);
 	eventItems.clear();
 	plotInfo = plot_info();
+	bailoutPlotInfo = plot_info();
+	shownScenario = SCENARIO_PRIMARY;
 	empty = true;
 }
 
@@ -447,6 +510,9 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 	}
 
 	const struct divecomputer *currentdc = d->get_dc(dc);
+	const struct dive *activeDive = d;
+	const struct divecomputer *activeDc = currentdc;
+	const plot_info *eventPlotInfo = &plotInfo;
 	if (!currentdc || currentdc->samples.empty()) {
 		clear();
 		return;
@@ -470,8 +536,42 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 	 * shown.
 	 * create_plot_info_new() automatically frees old plot data.
 	 */
-	if (!keepPlotInfo)
+	const plan_scenario scenario = selectScenario(plannerModel, inPlanner);
+	const bool bailoutAsPrimary = scenario != SCENARIO_PRIMARY;
+	const struct dive *bailoutDiveForDisplay = nullptr;
+#if !defined(SUBSURFACE_CLI)
+	if (scenario != SCENARIO_PRIMARY && inPlanner && plannerModel)
+		bailoutDiveForDisplay = plannerModel->getDiveplan().bailout_dive.get();
+#endif
+	if (bailoutAsPrimary && bailoutDiveForDisplay && !bailoutDiveForDisplay->dcs.empty()) {
+		activeDive = bailoutDiveForDisplay;
+		activeDc = &bailoutDiveForDisplay->dcs[0];
+		eventPlotInfo = &bailoutPlotInfo;
+	}
+	if (!keepPlotInfo) {
+#if !defined(SUBSURFACE_CLI)
+		// Deco on bailout: the planned ascent uses the bailout gradient factors, so do the ceilings.
+		if (scenario == SCENARIO_PRIMARY && inPlanner && plannerModel && prefs.dobailout &&
+		    pref_deco_mode(true) != RECREATIONAL && plannerModel->getDiveplan().bailout_gflow &&
+		    plannerModel->getDiveplan().bailout_gfhigh)
+			plotInfo = create_plot_info_new(d, currentdc, planner_ds, plannerModel->getDiveplan().bailout_gflow,
+							plannerModel->getDiveplan().bailout_gfhigh);
+		else
+#endif
 		plotInfo = create_plot_info_new(d, currentdc, planner_ds);
+		bailoutPlotInfo = plot_info();
+#if !defined(SUBSURFACE_CLI)
+		if (scenario != SCENARIO_PRIMARY) {
+			const struct diveplan &diveplan = plannerModel->getDiveplan();
+			const struct dive *bailoutDive = diveplan.bailout_dive.get();
+			bailoutPlotInfo = create_plot_info_new(bailoutDive, &bailoutDive->dcs[0], planner_ds,
+							       diveplan.bailout_gflow, diveplan.bailout_gfhigh);
+			if (bailoutAsPrimary)
+				eventPlotInfo = &bailoutPlotInfo;
+		}
+#endif
+	}
+	shownScenario = scenario;
 
 	bool hasHeartBeat = plotInfo.maxhr;
 	// For mobile we might want to turn of some features that are normally shown.
@@ -484,6 +584,8 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 	updateAxes(hasHeartBeat, simplified);
 
 	int newMaxtime = get_maxtime(plotInfo);
+	if (scenario != SCENARIO_PRIMARY)
+		newMaxtime = std::max(newMaxtime, get_maxtime(bailoutPlotInfo));
 	if (calcMax || newMaxtime > maxtime)
 		maxtime = newMaxtime;
 
@@ -492,6 +594,8 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 	 * otherwhise, update normally.
 	 */
 	int newMaxDepth = get_maxdepth(plotInfo);
+	if (scenario != SCENARIO_PRIMARY)
+		newMaxDepth = std::max(newMaxDepth, get_maxdepth(bailoutPlotInfo));
 	if (!calcMax) {
 		if (maxdepth < newMaxDepth)
 			maxdepth = newMaxDepth;
@@ -526,22 +630,30 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 	// Find first and last plotInfo entry
 	int firstSecond = lrint(timeAxis->minimum());
 	int lastSecond = lrint(timeAxis->maximum());
-	auto it1 = std::lower_bound(plotInfo.entry.begin(), plotInfo.entry.end(), firstSecond,
-				   [](const plot_data &d, int s)
-				   { return d.sec < s; });
-	auto it2 = std::lower_bound(it1, plotInfo.entry.end(), lastSecond,
-				    [](const plot_data &d, int s)
-				    { return d.sec < s; });
-	if (it1 > plotInfo.entry.begin() && it1->sec > firstSecond)
-		--it1;
-	if (it2 < plotInfo.entry.end())
-		++it2;
-	int from = it1 - plotInfo.entry.begin();
-	int to = it2 - plotInfo.entry.begin();
+	auto entryRange = [firstSecond, lastSecond](const plot_info &pi) {
+		auto it1 = std::lower_bound(pi.entry.begin(), pi.entry.end(), firstSecond,
+					    [](const plot_data &d, int s)
+					    { return d.sec < s; });
+		auto it2 = std::lower_bound(it1, pi.entry.end(), lastSecond,
+					    [](const plot_data &d, int s)
+					    { return d.sec < s; });
+		if (it1 > pi.entry.begin() && it1->sec > firstSecond)
+			--it1;
+		if (it2 < pi.entry.end())
+			++it2;
+		return std::make_pair(static_cast<int>(it1 - pi.entry.begin()), static_cast<int>(it2 - pi.entry.begin()));
+	};
+	auto [from, to] = entryRange(plotInfo);
 
 	timeAxis->updateTicks(animSpeed);
 	animatedAxes.push_back(timeAxis);
-	cylinderPressureAxis->setBounds(plotInfo.minpressure, plotInfo.maxpressure);
+	int minPressure = plotInfo.minpressure;
+	int maxPressure = plotInfo.maxpressure;
+	if (scenario != SCENARIO_PRIMARY) {
+		minPressure = std::min(minPressure, bailoutPlotInfo.minpressure);
+		maxPressure = std::max(maxPressure, bailoutPlotInfo.maxpressure);
+	}
+	cylinderPressureAxis->setBounds(minPressure, maxPressure);
 
 	tankItem->setData(d, currentdc, firstSecond, lastSecond);
 
@@ -558,11 +670,31 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 	}
 
 	// Replot dive items
+	diveCeiling->setBailoutStyle(false);
+	for (DiveCalculatedTissue *tissue: allTissues)
+		tissue->setBailoutStyle(false);
 	for (AbstractProfilePolygonItem *item: profileItems)
 		item->replot(d, from, to, inPlanner);
 
+	if (scenario != SCENARIO_PRIMARY) {
+		auto [bailoutFrom, bailoutTo] = entryRange(bailoutPlotInfo);
+		bailoutCeiling->setBailoutStyle(true);
+		bailoutCeiling->setVisible(prefs.calcceiling);
+		bailoutCeiling->replot(d, bailoutFrom, bailoutTo, inPlanner);
+		if (bailoutDiveForDisplay && activeDc)
+			bailoutGasPressureItem->replot(bailoutDiveForDisplay, bailoutFrom, bailoutTo, inPlanner);
+		bailoutProfileItem->setVisible(true);
+		bailoutGasPressureItem->setVisible(true);
+		bailoutProfileItem->replot(d, bailoutFrom, bailoutTo, inPlanner);
+	} else {
+		bailoutCeiling->setVisible(false);
+		bailoutGasPressureItem->clear();
+		bailoutGasPressureItem->setVisible(false);
+		bailoutProfileItem->setVisible(false);
+	}
+
 	if (prefs.percentagegraph)
-		percentageItem->replot(d, currentdc, plotInfo);
+		percentageItem->replot(d, currentdc, tensionPlotInfo());
 
 	// The event items are a bit special since we don't know how many events are going to
 	// exist on a dive, so I cant create cache items for that. that's why they are here
@@ -571,16 +703,16 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 	eventItems.clear();
 	const struct gasmix *lastgasmix;
 	divemode_t lastdivemode;
-	int cylinder_index = gasmix_loop(*d, *currentdc).next_cylinder_index().first;
+	int cylinder_index = gasmix_loop(*activeDive, *activeDc).next_cylinder_index().first;
 	if (cylinder_index == -1) {
 		lastgasmix = &gasmix_air;
 		lastdivemode = OC;
 	} else {
-		const cylinder_t *cylinder = d->get_cylinder(cylinder_index);
+		const cylinder_t *cylinder = activeDive->get_cylinder(cylinder_index);
 		lastgasmix = &cylinder->gasmix;
-		lastdivemode = get_effective_divemode(*currentdc, *cylinder);
+		lastdivemode = get_effective_divemode(*activeDc, *cylinder);
 	}
-	for (auto [idx, event]: enumerated_range(currentdc->events)) {
+	for (auto [idx, event]: enumerated_range(activeDc->events)) {
 		// if print mode is selected only draw headings, SP change, gas events or bookmark event
 		if (printMode) {
 			if (event.name.empty() ||
@@ -591,15 +723,15 @@ void ProfileScene::plotDive(const struct dive *dIn, int dcIn, DivePlannerPointsM
 			      event.type == SAMPLE_EVENT_BOOKMARK))
 				continue;
 		}
-		if (DiveEventItem::isInteresting(d, currentdc, event, plotInfo, firstSecond, lastSecond)) {
-			auto item = new DiveEventItem(d, currentdc, idx, event, *lastgasmix, lastdivemode, plotInfo,
-						      timeAxis, profileYAxis, animSpeed, *pixmaps);
+		if (DiveEventItem::isInteresting(activeDive, activeDc, event, *eventPlotInfo, firstSecond, lastSecond)) {
+			auto item = new DiveEventItem(activeDive, activeDc, idx, event, *lastgasmix, lastdivemode, *eventPlotInfo,
+					      timeAxis, profileYAxis, animSpeed, *pixmaps);
 			item->setZValue(2);
 			addItem(item);
 			eventItems.push_back(item);
 		}
 		if (event.is_gaschange()) {
-			auto [gasmix, divemode] = d->get_gasmix_from_event(event, *currentdc);
+			auto [gasmix, divemode] = activeDive->get_gasmix_from_event(event, *activeDc);
 			lastgasmix = &gasmix;
 			lastdivemode = divemode;
 		} else if (event.is_divemodechange())

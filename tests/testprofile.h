@@ -9,8 +9,11 @@ class TestProfile : public TestBase {
 	Q_OBJECT
 private slots:
 	void init();
+	void cleanup();
 	void testProfileExport();
 	void testProfileExportVPMB();
+	void testBailoutProfileUsesDashedLineOnHorizontalSegments();
+	void testOcBailoutGasChangeEventsAreDrawn();
 };
 
 #endif

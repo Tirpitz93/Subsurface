@@ -107,8 +107,15 @@ struct plot_info {
 
 #define AMB_PERCENTAGE 50.0
 
-/* when planner_dc is non-null, this is called in planner mode. */
-extern struct plot_info create_plot_info_new(const struct dive *dive, const struct divecomputer *dc, const struct deco_state *planner_ds);
+/* when planner_dc is non-null, this is called in planner mode.
+ * If gflow_override / gfhigh_override are not -1, the ceilings are calculated with these gradient
+ * factors instead of the current ones (used to show the bailout scenarios of the planner). */
+extern struct plot_info create_plot_info_new(const struct dive *dive, const struct divecomputer *dc, const struct deco_state *planner_ds,
+					     int gflow_override = -1, int gfhigh_override = -1);
+
+/* Calculate ceilings, tissue loading, etc. for all entries of pi. */
+extern void calculate_deco_information(struct deco_state *ds, const struct deco_state *planner_ds, const struct dive *dive,
+				       const struct divecomputer *dc, struct plot_info &pi);
 
 /*
  * When showing dive profiles, we scale things to the

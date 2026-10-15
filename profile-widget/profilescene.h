@@ -6,6 +6,7 @@
 
 #include "core/color.h"
 #include "core/profile.h"
+#include "core/planner.h"
 
 #include <QGraphicsScene>
 #include <QPainter>
@@ -23,6 +24,7 @@ class DivePercentageItem;
 struct DivePixmaps;
 class DivePlannerPointsModel;
 class DiveProfileItem;
+class DiveBailoutProfileItem;
 class DiveReportedCeiling;
 class DiveTemperatureItem;
 class DiveTextItem;
@@ -54,6 +56,10 @@ public:
 	int dc;
 private:
 	using DataAccessor = double (*)(const plot_data &data);
+	template<typename T, class... Args> T *createBailoutItem(const DiveCartesianAxis &vAxis, DataAccessor accessor, int z, Args&&... args);
+	plan_scenario selectScenario(DivePlannerPointsModel *plannerModel, bool inPlanner) const; // Which scenario the planner offers for the bailout display
+	const plot_info &plotInfoFor(plan_scenario scenario) const; // Data of the given scenario
+	const plot_info &tensionPlotInfo() const; // Data from which the tissue tensions are shown
 	template<typename T, class... Args> T *createItem(const DiveCartesianAxis &vAxis, DataAccessor accessor, int z, Args&&... args);
 	PartialPressureGasItem *createPPGas(DataAccessor accessor, color_index_t color, color_index_t colorAlert,
 					    const double *thresholdSettingsMin, const double *thresholdSettingsMax);
@@ -69,7 +75,9 @@ private:
 	int maxtime;
 	int maxdepth;
 
-	struct plot_info plotInfo;
+	struct plot_info plotInfo;		// the dive as planned / recorded
+	struct plot_info bailoutPlotInfo;	// the bailout alternative of the planned dive, empty if not shown
+	plan_scenario shownScenario = SCENARIO_PRIMARY; // which planner scenario is currently shown as alternative
 	QRectF profileRegion; // Region inside the axes, where the crosshair is painted in plan and edit mode.
 	DiveCartesianAxis *profileYAxis;
 	DiveCartesianAxis *gasYAxis;
@@ -80,9 +88,11 @@ private:
 	DiveCartesianAxis *percentageAxis;
 	std::vector<AbstractProfilePolygonItem *> profileItems;
 	DiveProfileItem *diveProfileItem;
+	DiveBailoutProfileItem *bailoutProfileItem;
 	DiveTemperatureItem *temperatureItem;
 	DiveMeanDepthItem *meanDepthItem;
 	DiveGasPressureItem *gasPressureItem;
+	DiveGasPressureItem *bailoutGasPressureItem;
 	QList<DiveEventItem *> eventItems;
 	DiveTextItem *diveComputerText;
 	DiveReportedCeiling *reportedCeiling;
@@ -95,7 +105,9 @@ private:
 	PartialPressureGasItem *ccrsensor3GasItem;
 	PartialPressureGasItem *ocpo2GasItem;
 	DiveCalculatedCeiling *diveCeiling;
+	DiveCalculatedCeiling *bailoutCeiling;
 	DiveTextItem *decoModelParameters;
+	TankItem *bailoutTankItem;
 	std::vector<DiveCalculatedTissue *> allTissues;
 	DiveHeartrateItem *heartBeatItem;
 	DivePercentageItem *percentageItem;

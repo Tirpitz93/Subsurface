@@ -261,6 +261,59 @@ void DiveProfileItem::plot_depth_sample(const struct plot_data &entry, QFlags<Qt
 	texts.push_back(std::move(item));
 }
 
+#include "core/errorhelper.h"
+
+void DiveBailoutProfileItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
+{
+	if (polygon().isEmpty())
+		return;
+
+	if (verbose >= 3)
+		fprintf(stderr, "DiveBailoutProfileItem::paint called, polygon count %d\n", (int)polygon().count());
+
+	painter->save();
+	setPen(Qt::NoPen);
+	QGraphicsPolygonItem::paint(painter, option, widget);
+
+	QPen pen;
+	pen.setCosmetic(true);
+	pen.setWidth(2);
+	pen.setStyle(Qt::DashLine);
+	// Draw per-segment velocity colors while keeping one continuous dash phase.
+	// Without this, short (especially horizontal) segments can look solid.
+	qreal dashOffset = 0.0;
+	QPolygonF poly = polygon();
+	const auto &data = pInfo.entry;
+	for (int i = from + 1; i < to; i++) {
+		int velocityColorIdx = static_cast<int>(VELOCITY_COLORS_START_IDX) + static_cast<int>(data[i].velocity);
+		QColor color = getColor(static_cast<color_index_t>(velocityColorIdx));
+		pen.setBrush(QBrush(color));
+		pen.setDashOffset(-dashOffset);
+		painter->setPen(pen);
+		if (i - from < poly.count() - 1) {
+			const QLineF segment(poly[i - from], poly[i - from + 1]);
+			painter->drawLine(segment);
+			dashOffset += segment.length();
+		}
+	}
+	painter->restore();
+}
+
+void DiveBailoutProfileItem::replot(const dive *d, int from, int to, bool in_planner)
+{
+	if (verbose >= 3)
+		fprintf(stderr, "DiveBailoutProfileItem::replot from %d to %d\n", from, to);
+	makePolygon(from, to);
+	if (polygon().isEmpty())
+		return;
+
+	QLinearGradient pat(0, polygon().boundingRect().top(), 0, polygon().boundingRect().bottom());
+	pat.setColorAt(1, QColor(255, 165, 0, 100)); // Orange with alpha
+	pat.setColorAt(0, getColor(DEPTH_TOP));
+	setBrush(QBrush(pat));
+	setZValue(1.5); // Ensure it's above the normal profile
+}
+
 DiveHeartrateItem::DiveHeartrateItem(const plot_info &pInfo, const DiveCartesianAxis &hAxis,
 				     const DiveCartesianAxis &vAxis, DataAccessor accessor, double dpr) :
 	AbstractProfilePolygonItem(pInfo, hAxis, vAxis, accessor, dpr)
@@ -699,13 +752,25 @@ DiveCalculatedCeiling::DiveCalculatedCeiling(const plot_info &pInfo, const DiveC
 
 void DiveCalculatedCeiling::replot(const dive *d, int from, int to, bool in_planner)
 {
+	if (verbose >= 3)
+		fprintf(stderr, "DiveCalculatedCeiling::replot from %d to %d, isBailout %d\n", from, to, isBailout);
 	makePolygon(from, to);
 
 	QLinearGradient pat(0, polygon().boundingRect().top(), 0, polygon().boundingRect().bottom());
-	pat.setColorAt(0, getColor(CALC_CEILING_SHALLOW));
-	pat.setColorAt(1, getColor(CALC_CEILING_DEEP));
+	if (isBailout) {
+		pat.setColorAt(0, QColor(255, 165, 0, 128)); // Orange with 50% alpha
+		pat.setColorAt(1, QColor(255, 69, 0, 128));  // Red-orange with 50% alpha
+	} else {
+		pat.setColorAt(0, getColor(CALC_CEILING_SHALLOW));
+		pat.setColorAt(1, getColor(CALC_CEILING_DEEP));
+	}
 	setPen(QPen(QBrush(Qt::NoBrush), 0));
 	setBrush(pat);
+}
+
+void DiveCalculatedCeiling::setBailoutStyle(bool value)
+{
+	isBailout = value;
 }
 
 void DiveCalculatedCeiling::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)

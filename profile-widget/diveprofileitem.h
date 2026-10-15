@@ -64,6 +64,13 @@ private:
 	QColor profileColor;
 };
 
+class DiveBailoutProfileItem : public DiveProfileItem {
+public:
+	using DiveProfileItem::DiveProfileItem;
+	void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
+	void replot(const dive *d, int from, int to, bool in_planner) override;
+};
+
 class DiveMeanDepthItem : public AbstractProfilePolygonItem {
 public:
 	DiveMeanDepthItem(const plot_info &pInfo, const DiveCartesianAxis &hAxis, const DiveCartesianAxis &vAxis,
@@ -131,6 +138,10 @@ public:
 			      const DiveCartesianAxis &vAxis, DataAccessor accessor, double dpr);
 	void replot(const dive *d, int from, int to, bool in_planner) override;
 	void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
+	void setBailoutStyle(bool value);
+
+private:
+	bool isBailout = false;
 };
 
 class DiveReportedCeiling : public AbstractProfilePolygonItem {

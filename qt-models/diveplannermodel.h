@@ -55,8 +55,16 @@ public:
 	int ascratelast6mDisplay() const;
 	int descrateDisplay() const;
 	pressure_t getSurfacePressure() const;
+	// Mobile-planner helpers: pressure with sea-level fallback, clamped setter,
+	// and altitude expressed in the active display unit.
+	int getMobilePlannerSurfacePressure() const;
+	void setMobilePlannerSurfacePressure(int mbar);
+	int getMobilePlannerAltitudeDisplay() const;
+	void setMobilePlannerAltitudeDisplay(int displayAlt);
 	int gfLow() const;
 	int gfHigh() const;
+	int gfLowBailout() const;
+	int gfHighBailout() const;
 
 	/**
 	 * @return the row number.
@@ -75,8 +83,12 @@ slots:
 	void addCylinder_clicked();
 	void setGFHigh(const int gfhigh);
 	void setGFLow(const int gflow);
+	void setGFHighBailout(const int gfhigh);
+	void setGFLowBailout(const int gflow);
+	void setShowBailout(bool value);
 	void setVpmbConservatism(int level);
 	void setSurfacePressure(pressure_t pressure);
+	void initialiseDesktopPlanSurfacePressure(pressure_t pressure);
 	void setSalinity(int salinity);
 	void setBottomSac(double sac);
 	void setDecoSac(double sac);
@@ -136,6 +148,7 @@ private:
 	void createPlan(bool replanCopy);
 	void updateDiveProfile(); // Creates a temporary plan and updates the dive profile with it.
 	void createTemporaryPlan();
+	void updateCylinderDepthsForPressure(pressure_t newPressure);
 	struct diveplan diveplan;
 	QString computeVariations(const struct diveplan &original_plan, const struct deco_state &ds, int *instance_id);
 	void computeVariationsAsync(struct diveplan plan, struct deco_state ds); // Note: works on copies of plan and ds
