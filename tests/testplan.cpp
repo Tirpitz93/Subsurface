@@ -954,6 +954,84 @@ void TestPlan::testCcrBailoutGasSelection()
 }
 
 // AI-generated (Claude)
+// With "show bailout" set, a CCR dive must additionally provide the CCR bailout ascent
+// (using the bailout gradient factors), while the primary plan stays on the loop.
+void TestPlan::testCcrShowBailout()
+{
+	deco_state_cache cache;
+
+	setupPrefs();
+	prefs.unit_system = METRIC;
+	prefs.units.length = units::METERS;
+	prefs.planner_deco_mode = BUEHLMANN;
+	prefs.problemsolvingtime = 6;
+	dive.dcs[0].divemode = CCR;
+	prefs.dobailout = false;
+
+	auto testPlan = setupPlanCcr();
+	testPlan.show_bailout = true;
+	testPlan.bailout_gflow = 85;
+	testPlan.bailout_gfhigh = 95;
+
+	plan(&test_deco_state, testPlan, &dive, 0, 60, cache, true, false, nullptr);
+
+	QCOMPARE(testPlan.bailout_scenario, SCENARIO_CCR_BAILOUT);
+	QVERIFY(testPlan.bailout_dive != nullptr);
+	QVERIFY(!testPlan.backup_dp.empty());
+	QCOMPARE(testPlan.backup_dp.front().time, 6 * 60);
+	QCOMPARE(testPlan.backup_dp.front().divemode, CCR);
+	for (const divedatapoint &dp: testPlan.backup_dp)
+		QVERIFY(!dp.entered);
+	// The bailout ascent remains a CCR profile, but uses the bailout GF values.
+	QCOMPARE(testPlan.backup_dp.back().divemode, CCR);
+	QCOMPARE(testPlan.backup_dp.back().depth.mm, 0);
+	QCOMPARE(testPlan.bailout_dive->dcs[0].divemode, CCR);
+	// The planned dive itself is still a loop dive without bailout segments.
+	QCOMPARE(dive.get_cylinder(get_cylinderid_at_time(&dive, &dive.dcs[0], 30_min))->cylinder_use, DILUENT);
+	QVERIFY(dive.notes.find("Bailout") != std::string::npos);
+
+	// Without show_bailout, no bailout plan is calculated
+	deco_state_cache cache2;
+	auto plainPlan = setupPlanCcr();
+	plan(&test_deco_state, plainPlan, &dive, 0, 60, cache2, true, false, nullptr);
+	QVERIFY(plainPlan.bailout_dive == nullptr);
+	QVERIFY(plainPlan.backup_dp.empty());
+}
+
+// If both planner bailout and "show bailout" are enabled, the primary plan must
+// stay on the loop and the bailout alternative must still be shown as overlay.
+void TestPlan::testCcrShowBailoutWithPlannerBailout()
+{
+	deco_state_cache cache;
+
+	setupPrefs();
+	prefs.unit_system = METRIC;
+	prefs.units.length = units::METERS;
+	prefs.planner_deco_mode = BUEHLMANN;
+	dive.dcs[0].divemode = CCR;
+	prefs.dobailout = true;
+
+	auto testPlan = setupPlanCcr();
+	testPlan.show_bailout = true;
+	testPlan.bailout_gflow = 85;
+	testPlan.bailout_gfhigh = 95;
+
+	plan(&test_deco_state, testPlan, &dive, 0, 60, cache, true, false, nullptr);
+
+	QCOMPARE(testPlan.bailout_scenario, SCENARIO_CCR_BAILOUT);
+	QVERIFY(testPlan.bailout_dive != nullptr);
+	QVERIFY(!testPlan.backup_dp.empty());
+	QCOMPARE(testPlan.backup_dp.back().divemode, OC);
+	QCOMPARE(testPlan.backup_dp.back().depth.mm, 0);
+	// The primary dive remains the planned loop ascent.
+	QCOMPARE(dive.get_cylinder(get_cylinderid_at_time(&dive, &dive.dcs[0], 30_min))->cylinder_use, DILUENT);
+	// The bailout overlay itself is open-circuit.
+	QCOMPARE(testPlan.bailout_dive->get_cylinder(get_cylinderid_at_time(testPlan.bailout_dive.get(),
+		&testPlan.bailout_dive->dcs[0], 30_min))->cylinder_use, OC_GAS);
+	QVERIFY(dive.notes.find("Bailout") != std::string::npos);
+}
+
+// AI-generated (Claude)
 // Set up a simple single-cylinder air dive for recreational-mode planning.
 static diveplan setupPlanRecreational(depth_t depth, int minutes)
 {

@@ -613,7 +613,72 @@ static std::pair<depth_t, depth_t> average_max_depth(const struct diveplan &dive
 	return { 0_m, 0_m };
 }
 
-planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct dive *dive, int dcNr, int timestep, deco_state_cache &cache, bool is_planner, bool show_disclaimer, std::vector<decostop> *decostoptable)
+#include "errorhelper.h"
+plan_scenario bailout_scenario_for_mode(enum divemode_t divemode)
+{
+	switch (divemode) {
+	case CCR:
+		return SCENARIO_CCR_BAILOUT;
+	case OC:
+		return SCENARIO_OC_BAILOUT;
+	default:
+		return SCENARIO_PRIMARY;
+	}
+}
+
+/*
+ * Plan the bailout alternative of an already planned dive. The entered part of the dive is kept as it
+ * is (so the tissues are loaded exactly as in the primary plan, i.e. on the loop for a CCR dive), while
+ * the ascent is recalculated with the bailout gradient factors (and, for CCR, on open circuit).
+ * The resulting dive is stored in diveplan.bailout_dive, the calculated segments in diveplan.backup_dp.
+ * Returns the notes describing the bailout plan, to be appended to the notes of the primary plan.
+ */
+static std::string plan_bailout_scenario(struct diveplan &diveplan, struct dive *dive, int dcNr, int timestep, plan_scenario scenario)
+{
+	struct diveplan bailout_plan = diveplan;
+	bailout_plan.dp.clear();
+	bailout_plan.backup_dp.clear();
+	bailout_plan.bailout_dive.reset();
+	bailout_plan.show_bailout = false;
+	bailout_plan.gflow = diveplan.bailout_gflow;
+	bailout_plan.gfhigh = diveplan.bailout_gfhigh;
+	// Keep the entered segments and the entries that announce the available gases
+	for (const divedatapoint &dp: diveplan.dp) {
+		if (dp.entered || dp.time == 0)
+			bailout_plan.dp.push_back(dp);
+	}
+
+	auto bailout_dive = std::make_shared<struct dive>();
+	copy_dive(dive, bailout_dive.get());
+
+	if (verbose >= 3)
+		fprintf(stderr, "Calculating bailout ascent: GFLow %d, GFHigh %d\n", bailout_plan.gflow, bailout_plan.gfhigh);
+
+	struct deco_state bailout_ds;
+	deco_state_cache bailout_cache;
+	planner_error_t error = plan(&bailout_ds, bailout_plan, bailout_dive.get(), dcNr, timestep, bailout_cache, true, false, nullptr, scenario);
+
+	// The bailout calculation changed the global gradient factors: restore those of the primary plan.
+	set_gf(diveplan.gflow, diveplan.gfhigh);
+
+	if (error != PLAN_OK)
+		report_info("bailout plan failed with error %d", static_cast<int>(error));
+
+	for (const divedatapoint &dp: bailout_plan.dp) {
+		if (!dp.entered && dp.time != 0)
+			diveplan.backup_dp.push_back(dp);
+	}
+	diveplan.bailout_scenario = scenario;
+	diveplan.bailout_dive = bailout_dive;
+
+	std::string heading = scenario == SCENARIO_CCR_BAILOUT ? translate("gettextFromC", "Bailout plan (open circuit ascent from the loop)")
+							       : translate("gettextFromC", "Bailout plan (open circuit ascent)");
+	if (pref_deco_mode(true) == BUEHLMANN)
+		heading += " GF " + std::to_string(bailout_plan.gflow) + "/" + std::to_string(bailout_plan.gfhigh);
+	return "<br/>\n<div><b>" + heading + "</b></div>\n" + bailout_dive->notes;
+}
+
+extern planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct dive *dive, int dcNr, int timestep, deco_state_cache &cache, bool is_planner, bool show_disclaimer, std::vector<decostop> *decostoptable, plan_scenario scenario)
 {
 
 	int bottom_gi;
@@ -655,6 +720,13 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 		}
 	}
 
+	if (scenario == SCENARIO_PRIMARY) {
+		// Any bailout plan is recalculated at the end of every primary plan.
+		diveplan.backup_dp.clear();
+		diveplan.bailout_dive.reset();
+		diveplan.bailout_scenario = SCENARIO_PRIMARY;
+	}
+
 	clear_deco(ds, dive->surface_pressure.mbar / 1000.0, true);
 	ds->max_bottom_ceiling_pressure = ds->first_ceiling_pressure = 0_bar;
 	create_dive_from_plan(diveplan, dive, dc, is_planner);
@@ -681,6 +753,18 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 	// Find the divemode at the end of the dive
 	[[maybe_unused]] auto [divemode, current_cylinder, gasmix] = get_dive_status_at(*dive, *dc, bottom_time);
 	gas = *gasmix;
+	const divemode_t entered_divemode = divemode;
+	// In the CCR bailout scenario the ascent is done on open circuit, exactly as if the user
+	// had selected "bailout" in the planner, but with the bailout gradient factors.
+	const bool bailout_from_loop = scenario == SCENARIO_CCR_BAILOUT && divemode == CCR;
+	// For CCR with bailout overlay enabled, keep the primary plan on the loop.
+	// "Deco on OC bailout" only changes which bailout overlay is calculated.
+	const bool preserve_primary_for_bailout_overlay = scenario == SCENARIO_PRIMARY && diveplan.show_bailout &&
+		entered_divemode == CCR;
+	const bool plan_on_bailout = prefs.dobailout && !preserve_primary_for_bailout_overlay;
+	// Deco on bailout uses the bailout gradient factors instead of the primary ones.
+	if (plan_on_bailout && scenario == SCENARIO_PRIMARY && diveplan.bailout_gflow && diveplan.bailout_gfhigh)
+		set_gf(diveplan.bailout_gflow, diveplan.bailout_gfhigh);
 
 	po2 = sample.setpoint.mbar;
 	depth_t depth = sample.depth;
@@ -707,12 +791,12 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 	/* Find the gases available for deco */
 
 	bool inappropriate_cylinder_use = false;
-	bool deco_on_loop = divemode == CCR && !(prefs.dobailout && pref_deco_mode(true) != RECREATIONAL);
+	bool deco_on_loop = divemode == CCR && (bailout_from_loop || !plan_on_bailout);
 	std::vector<gaschanges> gaschanges = analyze_gaslist(diveplan, dive, dcNr, depth.mm, &best_first_ascend_cylinder, deco_on_loop, inappropriate_cylinder_use);
 	if (inappropriate_cylinder_use) {
 		error = PLAN_ERROR_INAPPROPRIATE_GAS;
 	}
-	if (divemode == CCR && prefs.dobailout && pref_deco_mode(true) != RECREATIONAL && best_first_ascend_cylinder == -1) {
+	if (divemode == CCR && plan_on_bailout && pref_deco_mode(true) != RECREATIONAL && best_first_ascend_cylinder == -1) {
 		error = PLAN_ERROR_NO_SUITABLE_BAILOUT_GAS;
 	}
 	if (prefs.doo2breaks) {
@@ -819,15 +903,21 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 	}
 
 	tissue_at_end(ds, dive, dc, cache);
-	if (IS_REBREATHER_MODE(divemode) && prefs.dobailout) {
-		divemode = OC;
-		po2 = 0;
-		int bailoutsegment = std::max(prefs.min_switch_duration, 60 * prefs.problemsolvingtime);
-		add_segment(ds, dive->depth_to_bar(depth),
-			dive->get_cylinder(current_cylinder)->gasmix,
-			bailoutsegment, po2, divemode, prefs.bottomsac, true);
-		plan_add_segment(diveplan, bailoutsegment, depth, current_cylinder, po2, false, divemode);
-		bottom_time += bailoutsegment;
+	if (IS_REBREATHER_MODE(divemode) && (plan_on_bailout || bailout_from_loop || scenario == SCENARIO_CCR_BAILOUT)) {
+		int bailoutsegment = 60 * prefs.problemsolvingtime;
+		if (plan_on_bailout)
+			bailoutsegment = std::max(bailoutsegment, prefs.min_switch_duration);
+		if (bailoutsegment > 0) {
+			add_segment(ds, dive->depth_to_bar(depth),
+				dive->get_cylinder(current_cylinder)->gasmix,
+				bailoutsegment, po2, divemode, prefs.bottomsac, true);
+			plan_add_segment(diveplan, bailoutsegment, depth, current_cylinder, po2, false, divemode);
+			bottom_time += bailoutsegment;
+		}
+		if (plan_on_bailout) {
+			divemode = OC;
+			po2 = 0;
+		}
 	}
 	previous_deco_time = 100000000;
 	ds->deco_time = 10000000;
@@ -1065,6 +1155,16 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 		diveplan.eff_gflow = lrint(100.0 * (regressiona(ds) * first_stop_depth.mm + regressionb(ds)));
 	}
 
+	// Calculate the bailout alternative for plain planned dives (no decostop table, no
+	// variations) so the planner can overlay primary vs. emergency ascent profiles.
+	std::string bailout_notes;
+	const plan_scenario bailout_scenario = entered_divemode == CCR && prefs.dobailout ? SCENARIO_OC_BAILOUT
+										      : bailout_scenario_for_mode(entered_divemode);
+	if (scenario == SCENARIO_PRIMARY && diveplan.show_bailout && !decostoptable && !plan_on_bailout &&
+	    bailout_scenario != SCENARIO_PRIMARY && pref_deco_mode(true) != RECREATIONAL &&
+	    (bailout_scenario == SCENARIO_CCR_BAILOUT || pref_deco_mode(true) == BUEHLMANN))
+		bailout_notes = plan_bailout_scenario(diveplan, dive, dcNr, timestep, bailout_scenario);
+
 	if (prefs.surface_segment != 0) {
 		// Switch to an empty air cylinder for breathing air at the surface.
 		// FIXME: This is incredibly silly and emulates the old code when
@@ -1076,6 +1176,8 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 	}
 	create_dive_from_plan(diveplan, dive, dc, is_planner);
 	diveplan.add_plan_to_notes(*dive, show_disclaimer, error);
+	if (!bailout_notes.empty() && error == PLAN_OK)
+		dive->notes += bailout_notes;
 	fixup_dc_duration(*dc);
 	return error;
 }

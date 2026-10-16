@@ -20,6 +20,8 @@ private slots:
 	void testVpmbMetricRepeat();
 	void testMultipleGases();
 	void testCcrBailoutGasSelection();
+	void testCcrShowBailout();
+	void testCcrShowBailoutWithPlannerBailout();
 	// AI-generated (Claude)
 	void testRecreationalWithinNDL();
 	void testRecreationalExceedingNDL();

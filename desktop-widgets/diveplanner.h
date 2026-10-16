@@ -24,6 +24,7 @@ public:
 	void diveModeChanged(int mode);
 	void setDiveMode(int mode);
 	void disableDecoElements(int mode, divemode_t divemode);
+	void initialiseSurfacePressure();
 public
 slots:
 	void setupStartTime(QDateTime startTime);
@@ -60,6 +61,9 @@ slots:
 	void diveModeChanged(int mode);
 
 private:
+	void updateBailoutControls();
+	int decoMode = 0;
+	divemode_t currentDiveMode = OC;
 	Ui::plannerSettingsWidget ui;
 	void updateUnitsUI();
 };

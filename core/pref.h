@@ -159,6 +159,7 @@ struct preferences {
 	bool            display_variations;
 	bool            doo2breaks;
 	bool            dobailout;
+	bool            show_bailout_in_planner;
 	bool		o2narcotic;
 	bool            drop_stone_mode;
 	bool            last_stop;   // At 6m?
@@ -184,6 +185,8 @@ struct preferences {
 	double                      gasplot_frac;
 	int                         gfhigh;
 	int                         gflow;
+	int                         gfhigh_bo;
+	int                         gflow_bo;
 	bool                        gf_low_at_maxdepth;
 	bool                        hrgraph;
 	bool                        mod;

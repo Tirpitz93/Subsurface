@@ -4,7 +4,8 @@
 
 #include "testbase.h"
 
-class TestDivePlannerModel : public TestBase {
+class TestDivePlannerModel : public TestBase
+{
 	Q_OBJECT
 private slots:
 	void initTestCase();
@@ -24,6 +25,35 @@ private slots:
 	void testZeroDepthExcludesDecoGas();
 	// AI-generated (Claude)
 	void testRecreationalPlanSaveAllowed();
+	void testDesktopPlannerSurfacePressureInitialisation();
+	// AI-generated (Claude)
+	void testMobilePlannerSurfacePressureRetained();
+	// AI-generated (Claude)
+	void testMobilePlannerSurfacePressureRetainedWithSave();
+	// AI-generated (Claude)
+	void testMobilePlannerAboveSeaLevelPressure();
+	// AI-generated (Claude)
+	void testMobilePlannerAltitudeMatchesDesktop();
+	// AI-generated (Claude)
+	void testMobilePlannerDescentMatchesDesktop();
+	// AI-generated (Claude)
+	void testMobilePlannerUsesPreferenceVpmbConservatism();
+	// AI-generated (Claude)
+	void testMobilePlannerDecoGasSwitchDepthMatchesDesktop();
+	// AI-generated (Claude)
+	void testDesktopPlannerCylinderDepthsUpdatedOnPressureChange();
+	// AI-generated (Claude)
+	void testExplicitZeroCylinderDepthSurvivesPressureChange();
+	// AI-generated (Claude)
+	void testCylindersModelRefreshedOnPressureChange();
+	void testSaveLoadCycleStable_data();
+	void testSaveLoadCycleStable();
+	void testDropStoneLoadKeepsUserPoint();
+	void testSetShowBailout();
+	void testSaveLoadCycleStable_data();
+	void testSaveLoadCycleStable();
+	void testDropStoneLoadKeepsUserPoint();
+	void testSetShowBailout();
 };
 
 #endif // TESTDIVEPLANNERMODEL_H

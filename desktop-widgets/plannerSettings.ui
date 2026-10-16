@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1102</width>
-    <height>442</height>
+    <height>753</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -43,7 +43,7 @@
         <x>0</x>
         <y>0</y>
         <width>1092</width>
-        <height>432</height>
+        <height>743</height>
        </rect>
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout">
@@ -221,6 +221,7 @@
               </widget>
              </item>
             </layout>
+            <zorder>drop_stone_mode</zorder>
             <zorder>descRate</zorder>
             <zorder>descent</zorder>
            </widget>
@@ -262,6 +263,142 @@
           <property name="spacing">
            <number>2</number>
           </property>
+          <item row="2" column="1">
+           <widget class="QLabel" name="label_reserve_gas">
+            <property name="text">
+             <string>Reserve gas</string>
+            </property>
+            <property name="indent">
+             <number>26</number>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QRadioButton" name="buehlmann_deco">
+            <property name="text">
+             <string>Bühlmann deco</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="17" column="1">
+           <spacer name="verticalSpacer_5">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="19" column="1" colspan="2">
+           <widget class="QCheckBox" name="lastStop">
+            <property name="text">
+             <string>Last stop at 6m</string>
+            </property>
+           </widget>
+          </item>
+          <item row="17" column="1">
+           <widget class="QLabel" name="label_vpmb_conservatism">
+            <property name="text">
+             <string>Conservatism level</string>
+            </property>
+            <property name="indent">
+             <number>25</number>
+            </property>
+           </widget>
+          </item>
+          <item row="16" column="1">
+           <widget class="QRadioButton" name="vpmb_deco">
+            <property name="text">
+             <string>VPM-B deco</string>
+            </property>
+           </widget>
+          </item>
+          <item row="25" column="1">
+           <widget class="QLabel" name="label_min_switch_duration">
+            <property name="text">
+             <string>Min. switch duration O₂% below 100%</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <spacer name="verticalSpacer_6">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="27" column="1">
+           <spacer name="verticalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="17" column="2">
+           <widget class="QSpinBox" name="vpmb_conservatism">
+            <property name="prefix">
+             <string>+</string>
+            </property>
+            <property name="maximum">
+             <number>4</number>
+            </property>
+           </widget>
+          </item>
+          <item row="26" column="2">
+           <widget class="QSpinBox" name="surface_segment">
+            <property name="suffix">
+             <string>min</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="1">
+           <widget class="QLabel" name="label_gfhigh">
+            <property name="text">
+             <string>GFHigh</string>
+            </property>
+            <property name="indent">
+             <number>25</number>
+            </property>
+           </widget>
+          </item>
+          <item row="25" column="2">
+           <widget class="QSpinBox" name="min_switch_duration">
+            <property name="suffix">
+             <string>min</string>
+            </property>
+            <property name="prefix">
+             <string/>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>9</number>
+            </property>
+            <property name="value">
+             <number>1</number>
+            </property>
+           </widget>
+          </item>
           <item row="2" column="2">
            <widget class="QSpinBox" name="reserve_gas">
             <property name="suffix">
@@ -281,46 +418,6 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="1">
-           <spacer name="verticalSpacer_6">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="19" column="1" colspan="2">
-           <widget class="QCheckBox" name="switch_at_req_stop">
-            <property name="toolTip">
-             <string>Postpone gas change if a stop is not required</string>
-            </property>
-            <property name="text">
-             <string>Only switch at required stops</string>
-            </property>
-           </widget>
-          </item>
-          <item row="15" column="1" colspan="2">
-           <widget class="QCheckBox" name="lastStop">
-            <property name="text">
-             <string>Last stop at 6m</string>
-            </property>
-           </widget>
-          </item>
-          <item row="14" column="2">
-           <widget class="QSpinBox" name="vpmb_conservatism">
-            <property name="prefix">
-             <string>+</string>
-            </property>
-            <property name="maximum">
-             <number>4</number>
-            </property>
-           </widget>
-          </item>
           <item row="10" column="2">
            <widget class="QSpinBox" name="gfhigh">
             <property name="suffix">
@@ -330,113 +427,7 @@
              <number>40</number>
             </property>
             <property name="maximum">
-             <number>150</number>
-            </property>
-           </widget>
-          </item>
-          <item row="20" column="2">
-           <widget class="QSpinBox" name="min_switch_duration">
-            <property name="suffix">
-             <string>min</string>
-            </property>
-            <property name="prefix">
-             <string/>
-            </property>
-            <property name="minimum">
-             <number>1</number>
-            </property>
-            <property name="maximum">
-             <number>9</number>
-            </property>
-            <property name="value">
-             <number>1</number>
-            </property>
-           </widget>
-          </item>
-          <item row="17" column="1" colspan="2">
-           <widget class="QCheckBox" name="backgasBreaks">
-            <property name="text">
-             <string>Plan backgas breaks</string>
-            </property>
-           </widget>
-          </item>
-          <item row="22" column="1">
-           <spacer name="verticalSpacer_2">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="20" column="1">
-           <widget class="QLabel" name="label_min_switch_duration">
-            <property name="text">
-             <string>Min. switch duration O₂% below 100%</string>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="2">
-           <widget class="QSpinBox" name="gflow">
-            <property name="suffix">
-             <string>%</string>
-            </property>
-            <property name="minimum">
-             <number>10</number>
-            </property>
-            <property name="maximum">
-             <number>150</number>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="1">
-           <widget class="QLabel" name="label_gflow">
-            <property name="text">
-             <string>GFLow</string>
-            </property>
-            <property name="indent">
-             <number>26</number>
-            </property>
-           </widget>
-          </item>
-          <item row="10" column="1">
-           <widget class="QLabel" name="label_gfhigh">
-            <property name="text">
-             <string>GFHigh</string>
-            </property>
-            <property name="indent">
-             <number>25</number>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QRadioButton" name="recreational_deco">
-            <property name="toolTip">
-             <string>Maximize bottom time allowed by gas and no decompression limits</string>
-            </property>
-            <property name="text">
-             <string>Recreational mode</string>
-            </property>
-           </widget>
-          </item>
-          <item row="14" column="1">
-           <widget class="QLabel" name="label_vpmb_conservatism">
-            <property name="text">
-             <string>Conservatism level</string>
-            </property>
-            <property name="indent">
-             <number>25</number>
-            </property>
-           </widget>
-          </item>
-          <item row="13" column="1">
-           <widget class="QRadioButton" name="vpmb_deco">
-            <property name="text">
-             <string>VPM-B deco</string>
+             <number>100</number>
             </property>
            </widget>
           </item>
@@ -453,64 +444,167 @@
             </property>
            </widget>
           </item>
-          <item row="11" column="1">
-           <spacer name="verticalSpacer_7">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
+          <item row="24" column="1" colspan="2">
+           <widget class="QCheckBox" name="switch_at_req_stop">
+            <property name="toolTip">
+             <string>Postpone gas change if a stop is not required</string>
             </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="14" column="1">
-           <spacer name="verticalSpacer_5">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="5" column="1">
-           <widget class="QRadioButton" name="buehlmann_deco">
             <property name="text">
-             <string>Bühlmann deco</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
+             <string>Only switch at required stops</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
-           <widget class="QLabel" name="label_reserve_gas">
+          <item row="22" column="1" colspan="2">
+           <widget class="QCheckBox" name="backgasBreaks">
             <property name="text">
-             <string>Reserve gas</string>
+             <string>Plan backgas breaks</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="1">
+           <widget class="QLabel" name="label_gflow">
+            <property name="text">
+             <string>GFLow</string>
             </property>
             <property name="indent">
              <number>26</number>
             </property>
            </widget>
           </item>
-          <item row="21" column="1">
+          <item row="9" column="2">
+           <widget class="QSpinBox" name="gflow">
+            <property name="suffix">
+             <string>%</string>
+            </property>
+            <property name="minimum">
+             <number>10</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+           </widget>
+          </item>
+          <item row="26" column="1">
            <widget class="QLabel" name="label_surface_segment">
             <property name="text">
              <string>Surface segment</string>
             </property>
            </widget>
           </item>
-          <item row="21" column="2">
-           <widget class="QSpinBox" name="surface_segment">
-            <property name="suffix">
-             <string>min</string>
+          <item row="1" column="1">
+           <widget class="QRadioButton" name="recreational_deco">
+            <property name="toolTip">
+             <string>Maximize bottom time allowed by gas and no decompression limits</string>
             </property>
+            <property name="text">
+             <string>Recreational mode</string>
+            </property>
+           </widget>
+          </item>
+          <item row="11" column="1" rowspan="3" colspan="2">
+           <widget class="QGroupBox" name="groupBox">
+            <property name="autoFillBackground">
+             <bool>false</bool>
+            </property>
+            <property name="title">
+             <string>Bailout Options</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+            <property name="flat">
+             <bool>true</bool>
+            </property>
+            <property name="checkable">
+             <bool>false</bool>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_7">
+             <item row="3" column="2">
+              <widget class="QSpinBox" name="gfhigh_bo">
+               <property name="suffix">
+                <string>%</string>
+               </property>
+               <property name="minimum">
+                <number>40</number>
+               </property>
+               <property name="maximum">
+                <number>100</number>
+               </property>
+               <property name="singleStep">
+                <number>5</number>
+               </property>
+               <property name="value">
+                <number>95</number>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <spacer name="verticalSpacer_7">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item row="6" column="2">
+              <widget class="QSpinBox" name="gflow_bo">
+               <property name="suffix">
+                <string>%</string>
+               </property>
+               <property name="minimum">
+                <number>0</number>
+               </property>
+               <property name="maximum">
+                <number>100</number>
+               </property>
+               <property name="singleStep">
+                <number>5</number>
+               </property>
+               <property name="value">
+                <number>85</number>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_gfhigh_bo">
+               <property name="text">
+                <string>Bailout GFHigh</string>
+               </property>
+               <property name="indent">
+                <number>26</number>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QLabel" name="label_gflow_bo">
+               <property name="text">
+                <string>Bailout GFLow</string>
+               </property>
+               <property name="indent">
+                <number>26</number>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QCheckBox" name="show_bailout">
+               <property name="text">
+                <string>Show bailout</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QCheckBox" name="bailout">
+               <property name="text">
+                <string>Deco on OC bailout</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
          </layout>
@@ -839,13 +933,11 @@
   <tabstop>buehlmann_deco</tabstop>
   <tabstop>gflow</tabstop>
   <tabstop>gfhigh</tabstop>
-  <tabstop>vpmb_deco</tabstop>
   <tabstop>vpmb_conservatism</tabstop>
   <tabstop>drop_stone_mode</tabstop>
   <tabstop>lastStop</tabstop>
   <tabstop>backgasBreaks</tabstop>
   <tabstop>switch_at_req_stop</tabstop>
-  <tabstop>min_switch_duration</tabstop>
   <tabstop>bottomSAC</tabstop>
   <tabstop>decoStopSAC</tabstop>
   <tabstop>sacfactor</tabstop>

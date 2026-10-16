@@ -48,6 +48,7 @@ void TestQPrefDivePlanner::test_struct_get()
 	prefs.reserve_gas = 21;
 	prefs.sacfactor = 22;
 	prefs.safetystop = true;
+	prefs.show_bailout_in_planner = true;
 	prefs.switch_at_req_stop = true;
 	prefs.verbatim_plan = true;
 
@@ -74,6 +75,7 @@ void TestQPrefDivePlanner::test_struct_get()
 	QCOMPARE(tst->reserve_gas(), prefs.reserve_gas);
 	QCOMPARE(tst->sacfactor(), prefs.sacfactor);
 	QCOMPARE(tst->safetystop(), prefs.safetystop);
+	QCOMPARE(tst->show_bailout_in_planner(), prefs.show_bailout_in_planner);
 	QCOMPARE(tst->switch_at_req_stop(), prefs.switch_at_req_stop);
 	QCOMPARE(tst->verbatim_plan(), prefs.verbatim_plan);
 }
@@ -107,6 +109,7 @@ void TestQPrefDivePlanner::test_set_struct()
 	tst->set_reserve_gas(31);
 	tst->set_sacfactor(32);
 	tst->set_safetystop(false);
+	tst->set_show_bailout_in_planner(false);
 	tst->set_switch_at_req_stop(false);
 	tst->set_verbatim_plan(false);
 
@@ -133,6 +136,7 @@ void TestQPrefDivePlanner::test_set_struct()
 	QCOMPARE(prefs.reserve_gas, 31);
 	QCOMPARE(prefs.sacfactor, 32);
 	QCOMPARE(prefs.safetystop, false);
+	QCOMPARE(prefs.show_bailout_in_planner, false);
 	QCOMPARE(prefs.switch_at_req_stop, false);
 	QCOMPARE(prefs.verbatim_plan, false);
 }
@@ -166,6 +170,7 @@ void TestQPrefDivePlanner::test_set_load_struct()
 	tst->set_reserve_gas(31);
 	tst->set_sacfactor(32);
 	tst->set_safetystop(true);
+	tst->set_show_bailout_in_planner(true);
 	tst->set_switch_at_req_stop(true);
 	tst->set_verbatim_plan(true);
 
@@ -192,6 +197,7 @@ void TestQPrefDivePlanner::test_set_load_struct()
 	prefs.reserve_gas = 21;
 	prefs.sacfactor = 22;
 	prefs.safetystop = false;
+	prefs.show_bailout_in_planner = false;
 	prefs.switch_at_req_stop = false;
 	prefs.verbatim_plan = false;
 
@@ -219,6 +225,7 @@ void TestQPrefDivePlanner::test_set_load_struct()
 	QCOMPARE(prefs.reserve_gas, 31);
 	QCOMPARE(prefs.sacfactor, 32);
 	QCOMPARE(prefs.safetystop, true);
+	QCOMPARE(prefs.show_bailout_in_planner, true);
 	QCOMPARE(prefs.switch_at_req_stop, true);
 	QCOMPARE(prefs.verbatim_plan, true);
 }
@@ -252,6 +259,7 @@ void TestQPrefDivePlanner::test_struct_disk()
 	prefs.reserve_gas = 31;
 	prefs.sacfactor = 32;
 	prefs.safetystop = false;
+	prefs.show_bailout_in_planner = false;
 	prefs.switch_at_req_stop = false;
 	prefs.verbatim_plan = false;
 
@@ -279,6 +287,7 @@ void TestQPrefDivePlanner::test_struct_disk()
 	prefs.reserve_gas = 21;
 	prefs.sacfactor = 22;
 	prefs.safetystop = true;
+	prefs.show_bailout_in_planner = true;
 	prefs.switch_at_req_stop = true;
 	prefs.verbatim_plan = true;
 
@@ -306,6 +315,7 @@ void TestQPrefDivePlanner::test_struct_disk()
 	QCOMPARE(prefs.reserve_gas, 31);
 	QCOMPARE(prefs.sacfactor, 32);
 	QCOMPARE(prefs.safetystop, false);
+	QCOMPARE(prefs.show_bailout_in_planner, false);
 	QCOMPARE(prefs.switch_at_req_stop, false);
 	QCOMPARE(prefs.verbatim_plan, false);
 }
@@ -342,6 +352,7 @@ void TestQPrefDivePlanner::test_oldPreferences()
 	planner->set_doo2breaks(true);
 	planner->set_drop_stone_mode(true);
 	planner->set_safetystop(true);
+	planner->set_show_bailout_in_planner(true);
 	planner->set_switch_at_req_stop(true);
 
 	planner->set_ascrate75(1);
@@ -367,6 +378,7 @@ void TestQPrefDivePlanner::test_oldPreferences()
 	TEST(planner->doo2breaks(), true);
 	TEST(planner->drop_stone_mode(), true);
 	TEST(planner->safetystop(), true);
+	TEST(planner->show_bailout_in_planner(), true);
 	TEST(planner->switch_at_req_stop(), true);
 
 	TEST(planner->ascrate75(), 1);
@@ -392,6 +404,7 @@ void TestQPrefDivePlanner::test_oldPreferences()
 	planner->set_doo2breaks(false);
 	planner->set_drop_stone_mode(false);
 	planner->set_safetystop(false);
+	planner->set_show_bailout_in_planner(false);
 	planner->set_switch_at_req_stop(false);
 
 	planner->set_ascrate75(11);
@@ -417,6 +430,7 @@ void TestQPrefDivePlanner::test_oldPreferences()
 	TEST(planner->doo2breaks(), false);
 	TEST(planner->drop_stone_mode(), false);
 	TEST(planner->safetystop(), false);
+	TEST(planner->show_bailout_in_planner(), false);
 	TEST(planner->switch_at_req_stop(), false);
 
 	TEST(planner->ascrate75(), 11);
@@ -461,8 +475,9 @@ void TestQPrefDivePlanner::test_signals()
 	QSignalSpy spy21(qPrefDivePlanner::instance(), &qPrefDivePlanner::reserve_gasChanged);
 	QSignalSpy spy22(qPrefDivePlanner::instance(), &qPrefDivePlanner::sacfactorChanged);
 	QSignalSpy spy23(qPrefDivePlanner::instance(), &qPrefDivePlanner::safetystopChanged);
-	QSignalSpy spy24(qPrefDivePlanner::instance(), &qPrefDivePlanner::switch_at_req_stopChanged);
-	QSignalSpy spy25(qPrefDivePlanner::instance(), &qPrefDivePlanner::verbatim_planChanged);
+	QSignalSpy spy24(qPrefDivePlanner::instance(), &qPrefDivePlanner::show_bailout_in_plannerChanged);
+	QSignalSpy spy25(qPrefDivePlanner::instance(), &qPrefDivePlanner::switch_at_req_stopChanged);
+	QSignalSpy spy26(qPrefDivePlanner::instance(), &qPrefDivePlanner::verbatim_planChanged);
 
 	qPrefDivePlanner::set_ascratelast6m(-20);
 	qPrefDivePlanner::set_ascratestops(-21);
@@ -495,6 +510,8 @@ void TestQPrefDivePlanner::test_signals()
 	qPrefDivePlanner::set_sacfactor(-32);
 	prefs.safetystop = true;
 	qPrefDivePlanner::set_safetystop(false);
+	prefs.show_bailout_in_planner = true;
+	qPrefDivePlanner::set_show_bailout_in_planner(false);
 	prefs.switch_at_req_stop = true;
 	qPrefDivePlanner::set_switch_at_req_stop(false);
 	prefs.verbatim_plan = true;
@@ -525,6 +542,7 @@ void TestQPrefDivePlanner::test_signals()
 	QCOMPARE(spy23.count(), 1);
 	QCOMPARE(spy24.count(), 1);
 	QCOMPARE(spy25.count(), 1);
+	QCOMPARE(spy26.count(), 1);
 
 	QVERIFY(spy1.takeFirst().at(0).toInt() == -20);
 	QVERIFY(spy2.takeFirst().at(0).toInt() == -21);
@@ -551,6 +569,7 @@ void TestQPrefDivePlanner::test_signals()
 	QVERIFY(spy23.takeFirst().at(0).toBool() == false);
 	QVERIFY(spy24.takeFirst().at(0).toBool() == false);
 	QVERIFY(spy25.takeFirst().at(0).toBool() == false);
+	QVERIFY(spy26.takeFirst().at(0).toBool() == false);
 }
 
 

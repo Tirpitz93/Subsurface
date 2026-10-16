@@ -31,6 +31,9 @@ void qPrefDivePlanner::loadSync(bool doSync)
 	disk_display_variations(doSync);
 	disk_doo2breaks(doSync);
 	disk_dobailout(doSync);
+	disk_show_bailout_in_planner(doSync);
+	disk_gflow_bo(doSync);
+	disk_gfhigh_bo(doSync);
 	disk_o2narcotic(doSync);
 	disk_drop_stone_mode(doSync);
 	disk_last_stop(doSync);
@@ -73,6 +76,9 @@ HANDLE_PREFERENCE_BOOL(DivePlanner, "display_variations", display_variations);
 
 HANDLE_PREFERENCE_BOOL(DivePlanner, "doo2breaks", doo2breaks);
 HANDLE_PREFERENCE_BOOL(DivePlanner, "dobailbout", dobailout);
+HANDLE_PREFERENCE_BOOL(DivePlanner, "show_bailout_in_planner", show_bailout_in_planner);
+HANDLE_PREFERENCE_INT(DivePlanner, "gflow_bo", gflow_bo);
+HANDLE_PREFERENCE_INT(DivePlanner, "gfhigh_bo", gfhigh_bo);
 HANDLE_PREFERENCE_BOOL(DivePlanner, "o2narcotic", o2narcotic);
 
 HANDLE_PREFERENCE_BOOL(DivePlanner, "drop_stone_mode", drop_stone_mode);

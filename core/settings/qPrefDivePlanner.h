@@ -23,6 +23,9 @@ class qPrefDivePlanner : public QObject {
 	Q_PROPERTY(bool display_variations READ display_variations WRITE set_display_variations NOTIFY display_variationsChanged)
 	Q_PROPERTY(bool doo2breaks READ doo2breaks WRITE set_doo2breaks NOTIFY doo2breaksChanged)
 	Q_PROPERTY(bool dobailout READ dobailout WRITE set_dobailout NOTIFY dobailoutChanged)
+	Q_PROPERTY(bool show_bailout_in_planner READ show_bailout_in_planner WRITE set_show_bailout_in_planner NOTIFY show_bailout_in_plannerChanged)
+	Q_PROPERTY(int gflow_bo READ gflow_bo WRITE set_gflow_bo NOTIFY gflow_boChanged)
+	Q_PROPERTY(int gfhigh_bo READ gfhigh_bo WRITE set_gfhigh_bo NOTIFY gfhigh_boChanged)
 	Q_PROPERTY(bool o2narcotic READ o2narcotic WRITE set_o2narcotic NOTIFY o2narcoticChanged)
 	Q_PROPERTY(bool drop_stone_mode READ drop_stone_mode WRITE set_drop_stone_mode NOTIFY drop_stone_modeChanged)
 	Q_PROPERTY(bool last_stop READ last_stop WRITE set_last_stop NOTIFY last_stopChanged)
@@ -60,6 +63,9 @@ public:
 	static bool display_variations() { return prefs.display_variations; }
 	static bool doo2breaks() { return prefs.doo2breaks; }
 	static bool dobailout() { return prefs.dobailout; }
+	static bool show_bailout_in_planner() { return prefs.show_bailout_in_planner; }
+	static int gflow_bo() { return prefs.gflow_bo; }
+	static int gfhigh_bo() { return prefs.gfhigh_bo; }
 	static bool o2narcotic() { return prefs.o2narcotic; }
 	static bool drop_stone_mode() { return prefs.drop_stone_mode; }
 	static bool last_stop() { return prefs.last_stop; }
@@ -90,6 +96,9 @@ public slots:
 	static void set_display_variations(bool value);
 	static void set_doo2breaks(bool value);
 	static void set_dobailout(bool value);
+	static void set_show_bailout_in_planner(bool value);
+	static void set_gflow_bo(int value);
+	static void set_gfhigh_bo(int value);
 	static void set_o2narcotic(bool value);
 	static void set_drop_stone_mode(bool value);
 	static void set_last_stop(bool value);
@@ -120,6 +129,9 @@ signals:
 	void display_variationsChanged(bool value);
 	void doo2breaksChanged(bool value);
 	void dobailoutChanged(bool value);
+	void show_bailout_in_plannerChanged(bool value);
+	void gflow_boChanged(int value);
+	void gfhigh_boChanged(int value);
 	void o2narcoticChanged(bool value);
 	void drop_stone_modeChanged(bool value);
 	void last_stopChanged(bool value);
@@ -153,6 +165,9 @@ private:
 	static void disk_display_variations(bool doSync);
 	static void disk_doo2breaks(bool doSync);
 	static void disk_dobailout(bool doSync);
+	static void disk_show_bailout_in_planner(bool doSync);
+	static void disk_gflow_bo(bool doSync);
+	static void disk_gfhigh_bo(bool doSync);
 	static void disk_o2narcotic(bool doSync);
 	static void disk_drop_stone_mode(bool doSync);
 	static void disk_last_stop(bool doSync);
